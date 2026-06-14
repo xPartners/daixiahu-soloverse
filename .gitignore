@@ -1,0 +1,50 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ===== 虚拟环境 =====
+venv/
+.venv/
+env/
+ENV/
+
+# ===== 环境变量 =====
+.env
+
+# ===== 打包与发布 =====
+*.egg-info/
+*.egg
+dist/
+build/
+eggs/
+sdist/
+
+# ===== 测试与类型检查缓存 =====
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db
+
+# ===== 日志 =====
+*.log
+
+# ===== 数据库 =====
+*.sqlite
+*.db
+
+# ===== 上传文件 =====
+uploads/

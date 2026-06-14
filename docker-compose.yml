@@ -1,0 +1,93 @@
+# ybA2A 医保规则治理引擎 - 本地编排文件
+# 使用方式：
+#   1. 复制 .env.example 为 .env 并按需修改配置
+#   2. 执行 docker-compose up -d 启动全部服务
+
+version: "3.9"
+
+services:
+  # ===== 应用服务（FastAPI + Uvicorn）=====
+  yba2a-app:
+    # 使用当前目录的 Dockerfile 进行构建
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # 容器名
+    container_name: yba2a-app
+    # 端口映射：宿主机 8000 -> 容器 8000
+    ports:
+      - "8000:8000"
+    # 通过 env_file 注入 .env 中的全部环境变量
+    env_file:
+      - .env
+    # 由于容器内服务通过名称访问依赖，需覆盖 host 相关变量
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/yba2a
+      - ES_URL=http://es:9200
+      - MINIO_ENDPOINT=minio:9000
+    # 依赖项：必须等依赖服务启动后再启动应用
+    depends_on:
+      db:
+        condition: service_started
+      es:
+        condition: service_started
+      minio:
+        condition: service_started
+    # 服务异常退出时自动重启
+    restart: unless-stopped
+
+  # ===== PostgreSQL 数据库 =====
+  db:
+    image: postgres:16-alpine
+    container_name: yba2a-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=yba2a
+    # 数据持久化：将数据目录挂载到命名卷
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # ===== Elasticsearch 全文检索 =====
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: yba2a-es
+    ports:
+      - "9200:9200"
+    environment:
+      # 单节点模式，便于本地开发
+      - discovery.type=single-node
+      # 关闭安全认证，简化本地访问
+      - xpack.security.enabled=false
+      # 限制 JVM 内存占用，避免占用过大
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+  # ===== MinIO 对象存储 =====
+  minio:
+    image: minio/minio
+    container_name: yba2a-minio
+    ports:
+      # API 端口
+      - "9000:9000"
+      # 控制台端口
+      - "9001:9001"
+    # 启动命令：启动 server 并暴露 Web 控制台
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+# ===== 命名卷：用于持久化各服务数据 =====
+volumes:
+  db_data:
+  es_data:
+  minio_data:
