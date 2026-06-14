@@ -6,14 +6,20 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routers import antifraud, cross_region, policy, rules, simulation
 from app.config import settings
 from app.data.database import init_db
 
 logger = logging.getLogger(__name__)
+
+# 静态资源目录（前端测试页面）
+_STATIC_DIR = Path(__file__).parent / "static"
 
 
 @asynccontextmanager
@@ -40,6 +46,28 @@ app.include_router(rules.router, prefix=settings.API_V1_PREFIX)
 app.include_router(antifraud.router, prefix=settings.API_V1_PREFIX)
 app.include_router(simulation.router, prefix=settings.API_V1_PREFIX)
 app.include_router(cross_region.router, prefix=settings.API_V1_PREFIX)
+
+# 挂载前端静态资源
+if _STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
+
+@app.get("/app")
+async def frontend():
+    """前端测试台入口。
+
+    通过 URL 版本号 /app?v=N 可强制浏览器拉取最新页面，
+    避免内联 JS/CSS 更新后浏览器仍使用旧缓存。
+    同时响应头设置 no-cache，开发期默认不缓存。
+    """
+    return FileResponse(
+        str(_STATIC_DIR / "index.html"),
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @app.get("/")
